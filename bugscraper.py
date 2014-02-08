@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from time import localtime, strftime, sleep
+from os import remove
 import argparse
 import random
 import sys
@@ -16,7 +17,6 @@ IGNORE_SET = set() # keeps up with the sites that we know don't work
 SCRAPE_FILE = 'alexa_top_1m.csv' # default to alexa list
 GEN_FILE = '' # write out sites that work with -g option
 RESULTS_FILE = '' # write password results to this file
-MAX_SITES = 20 # number of sites we want to do
 """
 
 Main scraping/spidering function
@@ -83,10 +83,16 @@ def scrape(url):
 
 """
 Write out the results to a file
+TODO: Add more stats (numpy?)
 """
-def write_result(url, result):
-	# TODO: log results
-	print strftime("%m-%d-%Y_%H:%M:%S", localtime())
+def write_result(url, results, log):
+	with open(log, 'a+') as logfile:
+		stats = [] # for some averages and whatnot
+		logfile.write(url + '\n')
+		logfile.write("Results: " + str(len(results)) + '\n')
+		for r in results:
+			stats.append(int((str(r[2][0]).rsplit('%'))[0]))
+		logfile.write("Average success %: " + str(sum(stats)/len(stats)) + '\n')
 
 def parse_args():
 	parser = argparse.ArgumentParser(description='Scrape BugMeNot for valid accounts')
@@ -94,56 +100,67 @@ def parse_args():
 	parser.add_argument('-g', '--generate', nargs=1,
 		help="""Use the Alexa list instead and write out working sites
 		to a new file.""") # -r for regenerate working site file
-	parser.add_argument('-n', '--no-results', help="Don't write results to file")
-	parser.add_argument('-m', '--max-sites', nargs=1, help="Max sites to parse")
+	parser.add_argument('-n', '--no-results', action='store_false',
+		help="Don't write results to file")
+	parser.add_argument('-m', '--max-sites', nargs=1, default=[20], help="Max sites to parse")
+	parser.add_argument('-o', '--output', nargs=1,
+		default='result_' + strftime("%m-%d-%Y_%H:%M:%S", localtime()) + '.txt',
+		help='Result output file. Defaults to current date and time.')
 	return parser.parse_args()
 
-def main():
+def main(**kwargs):
 	# seed for waiting
 	random.seed()
-	try:
-		if GEN_FILE:
-			if GEN_FILE == SCRAPE_FILE:
-				print "HEY! Don't use the same file for two things!!!"
-				raise IOError
-			gen_file = open(GEN_FILE, 'w+')
 
-		with open(SCRAPE_FILE, 'r') as alexa_list:
-			site_counter = 0
+	gen_file = ''
+	if GEN_FILE:
+		if GEN_FILE == SCRAPE_FILE:
+			print "HEY! Don't use the same file for two things!!!"
+			raise IOError
+		gen_file = open(GEN_FILE, 'w+')
+
+	try:
+		with open(SCRAPE_FILE, 'r') as scrape_file:
+			site_counter = 1 # loop break
 			result_number = 0 # this is for later parsing of a smaller set
-			for site in alexa_list:
+			for site in scrape_file:
 				url = site.rsplit(',')[1].strip()
 				site_result = scrape(url)
 				# account for failures due to 404
 				while site_result == -1:
 					site_result = scrape(url)
-
 				if site_result:
 					result_number += 1
 					print url, "has", len(site_result), "results!"
 					# write out the working sites to a new file?
 					if GEN_FILE:
 						gen_file.write(str(result_number) + ',' + url + '\n')
-				# write_result(site.rsplit(',')[1].strip(), site_result)
-				if site_counter >= MAX_SITES:
+				if kwargs['writeout']:
+					write_result(url, site_result, kwargs['logfile'])
+				if site_counter >= kwargs['max_sites']:
 					break
 				# don't want to DoS...
 				sleep(random.uniform(1.0, 3.55))
 				site_counter += 1
-			gen_file.close() # this is annoying but it makes my design easier to read
+			
 	except IOError, e:
 		print "Site list file does not exist!"
 		raise IOError
+	except KeyboardInterrupt, e2:
+		# ask to delete the incomplete logfile
+		if kwargs['writeout']:
+			if raw_input("Interrupted. Delete the results file? (Y/N) ").upper() == 'Y':
+				remove(kwargs['logfile'])
+	finally:
+		if gen_file:
+			gen_file.close() # this is annoying but it makes my design easier to read
 		
 
 if __name__ == "__main__":	
 	args = parse_args()
-	# in case we want to use a different site list, i.e. one we parsed
 	if args.sites:
 		SCRAPE_FILE = args.sites[0]
 	if args.generate:
 		GEN_FILE = args.generate[0]
-	if args.max_sites:
-		MAX_SITES = int(args.max_sites[0])
-	main()
-
+	main(writeout=args.no_results, max_sites=int(args.max_sites[0]),
+		logfile=args.output)

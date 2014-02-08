@@ -17,10 +17,38 @@ def scrape(url):
 		print e.fp.read()
 		raise e
 
-	bmn_soup = BeautifulSoup(bugmenot_response.read())
-	accounts = bmn_soup.findAll(class_="account")
-	names = BeautifulSoup(str(accounts)).findAll('kbd')
-	print names
+	bmn_soup = BeautifulSoup(bugmenot_response.read()).findAll(class_="account")
+
+	""" 
+		The soup will be empty if the page has no accounts or falls into the "bad"
+		category (paywalled, commmunity, etc.)
+	"""
+	if not bmn_soup:
+		print "No results for:", url
+		return
+
+	# Buckets for parsing
+	usernames = []
+	passwords = []
+	rates = []
+
+	for account in bmn_soup:
+		# First, parse the accounts for usernames and passwords
+		counter = 0 
+		for userpass in BeautifulSoup(str(account)).findAll('kbd'):
+			if counter == 0: # we have a username
+				usernames.append(userpass.contents)
+			elif counter == 1: # we have a password
+				passwords.append(userpass.contents)
+			else: # we have a comment, ignore it and reset counter
+				counter = 0
+			counter += 1
+		# Next, parse for the success rates
+		for success in BeautifulSoup(str(account)).findAll(class_='success_rate'):
+			rates.append(success.contents)
+
+	print zip(usernames, passwords, rates)
+
 
 if __name__ == "__main__":
 	scrape("xe.gr")

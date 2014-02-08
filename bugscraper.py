@@ -20,8 +20,8 @@ def scrape(url):
 	bmn_soup = BeautifulSoup(bugmenot_response.read()).findAll(class_="account")
 
 	""" 
-		The soup will be empty if the page has no accounts or falls into the "bad"
-		category (paywalled, commmunity, etc.)
+	The soup will be empty if the page has no accounts or falls into the "bad"
+	category (paywalled, commmunity, etc.)
 	"""
 	if not bmn_soup:
 		print "No results for:", url

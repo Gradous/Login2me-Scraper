@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 from time import localtime, strftime, sleep
-from os import remove
+from os import remove, fsync
 import argparse
 import random
 import sys
@@ -84,20 +84,25 @@ def write_result(url, results, log):
 		for r in results:
 			stats.append(int((str(r[2][0]).rsplit('%'))[0]))
 		logfile.write("Average success %: " + str(sum(stats)/len(stats)) + '\n')
+		logfile.flush()
+		fsync(logfile)
 
 def parse_args():
 	parser = argparse.ArgumentParser(description='Scrape BugMeNot for valid accounts')
-	parser.add_argument('-s', '--sites', nargs=1, help='Site list for scraping',
+	parser.add_argument('-f', '--file', nargs=1, help='Site list for scraping',
 		default='alexa_top_1m.csv')
 	parser.add_argument('-g', '--generate', nargs=1,
 		help="""Use the Alexa list instead and write out working sites
 		to a new file.""")
 	parser.add_argument('-n', '--no-results', action='store_false',
 		help="Don't write results to file")
-	parser.add_argument('-m', '--max-sites', nargs=1, help="Max sites to parse")
+	parser.add_argument('-m', '--max-sites', nargs=1, help="Max sites to parse",
+		default=[1000000])
 	parser.add_argument('-o', '--output', nargs=1,
 		default='result_' + strftime("%m-%d-%Y_%H:%M:%S", localtime()) + '.txt',
 		help='Result output file. Defaults to current date and time.')
+	parser.add_argument('-s', '--skip', nargs=1, default=[1], 
+		help='Skip to entry X before scraping')
 	return parser.parse_args()
 
 def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
@@ -111,25 +116,31 @@ def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 
 	try:
 		with open(scrape_file, 'r') as to_scrape:
-			site_counter = 1 # loop break
-			result_number = 0 # this is for later parsing of a smaller set
+			site_counter = kwargs['site_counter'] # loop break, default of 1
+			result_number = 1 # counter for filtered set
 			for site in to_scrape:
 				url = site.rsplit(',')[1].strip()
-				# get the result, None = failure
-				site_result = scrape(url)
-				if site_result:
-					result_number += 1
-					print url, "has", len(site_result), "results!"
-					# write out the working sites to a new file?
-					if gen_file:
-						gen_file.write(str(result_number) + ',' + url + '\n')
-					if kwargs['writeout']:
-						write_result(url, site_result, kwargs['logfile'])
-				if site_counter >= kwargs['max_sites']:
-					break
-				# don't want to DoS...
-				sleep(random.uniform(min_wait, max_wait))
-				site_counter += 1
+				url_num = site.rsplit(',')[0].strip()
+				# --skip option takes effect here
+				if int(url_num) == int(site_counter):
+					# get the result, None = failure
+					site_result = scrape(url)
+					if site_result:
+						print url, "has", len(site_result), "results!"
+						# write out the working sites to a new file?
+						if gen_file:
+							gen_file.write(str(result_number) + ',' + url + '\n')
+							gen_file.flush()
+							fsync(gen_file)
+						if kwargs['writeout']:
+							write_result(url, site_result, kwargs['logfile'])
+						result_number += 1
+					if site_counter >= int(kwargs['site_counter']) +\
+					 int(kwargs['max_sites'] - 1):
+						break
+					# don't want to DoS...
+					sleep(random.uniform(min_wait, max_wait))
+					site_counter += 1
 			
 	except IOError, e:
 		raise IOError("Site list file does not exist!")
@@ -149,5 +160,5 @@ def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 if __name__ == "__main__":	
 	args = parse_args()
 	main(writeout=args.no_results, max_sites=int(args.max_sites[0]),
-		logfile=args.output, scrape_file=args.sites,
-		gen_file=args.generate)
+		logfile=args.output, scrape_file=args.file,
+		gen_file=args.generate, site_counter=int(args.skip[0]))

@@ -13,37 +13,13 @@ import urllib2
 """
 Globals
 """
-IGNORE_SET = set() # keeps up with the sites that we know don't work
-SCRAPE_FILE = 'alexa_top_1m.csv' # default to alexa list
-GEN_FILE = '' # write out sites that work with -g option
-RESULTS_FILE = '' # write password results to this file
-WAIT_MULT = 1
-USER_AGENT = 'Bug-Scraper1.0 (gitbhub.com/Gradous/Bug-Scraper)'
-"""
-USER_AGENTS = ['Mozilla/5.0 (Windows NT 6.1; WOW64)',
-'Mozilla/5.0 (iPad; U; CPU OS 3_2_1 like Mac OS X; en-us)'+
-'AppleWebKit/531.21.10 (KHTML, like Gecko) Mobile/7B405',
-'Mozzilla/5.0 (Windows NT 7.0; Win64; x64; rv:3.0b2pre)'+
-'Gecko/20110203 Firefox/4.0b12pre',
-'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.11 (KHTML,'+
-'like Gecko) Chrome/23.0.1271.95 Safari/537.11',
-'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3)'+
-'AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11',
-'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36'+
-'(KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36']
-"""
-
+USER_AGENT = 'Bug-Scraper1.0 (github.com/Gradous/Bug-Scraper)'
 """
 
 Main scraping/spidering function
 """
 def scrape(url):
-	# First check if we should ignore it
-	#if url.rsplit('.')[0] in IGNORE_SET:
-	#	print url, "is being ignored!"
-	#	return None
-
-	# Spoof our user agent since BMN doesn't like bots
+	# A custom user agent!
 	bugmenot_req = urllib2.Request('http://bugmenot.com/view/' + url,
 		headers={'User-agent' : USER_AGENT})
 	try:
@@ -71,16 +47,16 @@ def scrape(url):
 			# First, parse the accounts for usernames and passwords
 			counter = 0 
 			for userpass in BeautifulSoup(str(account)).findAll('kbd'):
-				 if counter == 0: # we have a username
+				if counter == 0: # we have a username
 					counter += 1
 					usernames.append(userpass.contents)
-				 elif counter == 1: # we have a password
+				elif counter == 1: # we have a password
 					counter += 1
 					passwords.append(userpass.contents)
-				 else: # we have a comment, ignore it and reset counter
+				else: # we have a comment, ignore it and reset counter
 					counter = 0
-				 # Next, parse for the success rates
-				 for success in BeautifulSoup(str(account)).findAll(class_='success_rate'):
+				# Next, parse for the success rates
+				for success in BeautifulSoup(str(account)).findAll(class_='success_rate'):
 					rates.append(success.contents)
 
 		# return the list of tuples for later parsing
@@ -88,9 +64,9 @@ def scrape(url):
 		return zip(usernames, passwords, rates)
 	except urllib2.HTTPError, e:
 		print "Error code: ", e.code
+		# in the odd case of 404, keep going
 		if e.code == 404:
 			print url, "- HTTP 404"
-			#bugmenot_response.close()
 			return None
 		else:
 			print e.fp.read()
@@ -112,34 +88,34 @@ def write_result(url, results, log):
 
 def parse_args():
 	parser = argparse.ArgumentParser(description='Scrape BugMeNot for valid accounts')
-	parser.add_argument('-s', '--sites', nargs=1, help='Site list for scraping') # -f for site file
+	parser.add_argument('-s', '--sites', nargs=1, help='Site list for scraping',
+		default='alexa_top_1m.csv')
 	parser.add_argument('-g', '--generate', nargs=1,
 		help="""Use the Alexa list instead and write out working sites
-		to a new file.""") # -r for regenerate working site file
+		to a new file.""")
 	parser.add_argument('-n', '--no-results', action='store_false',
 		help="Don't write results to file")
-	parser.add_argument('-m', '--max-sites', nargs=1, default=[20], help="Max sites to parse")
+	parser.add_argument('-m', '--max-sites', nargs=1, help="Max sites to parse")
 	parser.add_argument('-o', '--output', nargs=1,
 		default='result_' + strftime("%m-%d-%Y_%H:%M:%S", localtime()) + '.txt',
 		help='Result output file. Defaults to current date and time.')
 	return parser.parse_args()
 
-def main(**kwargs):
+def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 	# seed for waiting
 	random.seed()
 
-	gen_file = ''
-	if GEN_FILE:
-		if GEN_FILE == SCRAPE_FILE:
-			print "HEY! Don't use the same file for two things!!!"
-			raise IOError
-		gen_file = open(GEN_FILE, 'w+')
+	if gen_file == scrape_file:
+		print "HEY! Don't use the same file for two things!!!"
+		raise IOError
+	if gen_file:
+		gen_file = open(gen_file, 'w+')
 
 	try:
-		with open(SCRAPE_FILE, 'r') as scrape_file:
+		with open(scrape_file, 'r') as to_scrape:
 			site_counter = 1 # loop break
 			result_number = 0 # this is for later parsing of a smaller set
-			for site in scrape_file:
+			for site in to_scrape:
 				url = site.rsplit(',')[1].strip()
 				site_result = scrape(url)
 				# account for failures due to 404
@@ -149,14 +125,14 @@ def main(**kwargs):
 					result_number += 1
 					print url, "has", len(site_result), "results!"
 					# write out the working sites to a new file?
-					if GEN_FILE:
+					if gen_file:
 						gen_file.write(str(result_number) + ',' + url + '\n')
 					if kwargs['writeout']:
 						write_result(url, site_result, kwargs['logfile'])
 				if site_counter >= kwargs['max_sites']:
 					break
 				# don't want to DoS...
-				sleep(random.uniform(1.5, 3.5))
+				sleep(random.uniform(min_wait, max_wait))
 				site_counter += 1
 			
 	except IOError, e:
@@ -166,17 +142,17 @@ def main(**kwargs):
 		# ask to delete the incomplete logfile
 		if kwargs['writeout']:
 			if raw_input("Interrupted. Delete the results file? (Y/N) ").upper() == 'Y':
-				remove(kwargs['logfile'])
+				try: # just in case python didn't actually write yet...
+					remove(kwargs['logfile'])
+				except OSError, e:
+					pass
 	finally:
 		if gen_file:
-			gen_file.close() # this is annoying but it makes my design easier to read
+			gen_file.close() # this is annoying but I have to do it
 		
 
 if __name__ == "__main__":	
 	args = parse_args()
-	if args.sites:
-		SCRAPE_FILE = args.sites[0]
-	if args.generate:
-		GEN_FILE = args.generate[0]
 	main(writeout=args.no_results, max_sites=int(args.max_sites[0]),
-		logfile=args.output)
+		logfile=args.output, scrape_file=args.sites,
+		gen_file=args.generate)

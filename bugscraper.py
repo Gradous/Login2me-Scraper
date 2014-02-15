@@ -17,69 +17,85 @@ IGNORE_SET = set() # keeps up with the sites that we know don't work
 SCRAPE_FILE = 'alexa_top_1m.csv' # default to alexa list
 GEN_FILE = '' # write out sites that work with -g option
 RESULTS_FILE = '' # write password results to this file
+WAIT_MULT = 1
+USER_AGENT = 'Bug-Scraper1.0 (gitbhub.com/Gradous/Bug-Scraper)'
+"""
+USER_AGENTS = ['Mozilla/5.0 (Windows NT 6.1; WOW64)',
+'Mozilla/5.0 (iPad; U; CPU OS 3_2_1 like Mac OS X; en-us)'+
+'AppleWebKit/531.21.10 (KHTML, like Gecko) Mobile/7B405',
+'Mozzilla/5.0 (Windows NT 7.0; Win64; x64; rv:3.0b2pre)'+
+'Gecko/20110203 Firefox/4.0b12pre',
+'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.11 (KHTML,'+
+'like Gecko) Chrome/23.0.1271.95 Safari/537.11',
+'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3)'+
+'AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.57 Safari/536.11',
+'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/537.36'+
+'(KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36']
+"""
+
 """
 
 Main scraping/spidering function
 """
 def scrape(url):
 	# First check if we should ignore it
-	if url.rsplit('.')[0] in IGNORE_SET:
-		print url, "is being ignored!"
-		return None
+	#if url.rsplit('.')[0] in IGNORE_SET:
+	#	print url, "is being ignored!"
+	#	return None
 
 	# Spoof our user agent since BMN doesn't like bots
 	bugmenot_req = urllib2.Request('http://bugmenot.com/view/' + url,
-		headers={'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64)'})
+		headers={'User-agent' : USER_AGENT})
 	try:
 		bugmenot_response = urllib2.urlopen(bugmenot_req)
+		# Extract the entries for accounts from the BeautifulSoup
+		bmn_soup = BeautifulSoup(bugmenot_response.read()).findAll(class_="account")
+
+		""" 
+		The soup will be empty if the page has no accounts or falls into the "bad"
+		category (paywalled, commmunity, etc.)
+		"""
+		if not bmn_soup:
+			print "No results for", url, "!"
+			# add to the ignore set
+			#IGNORE_SET.add(url.rsplit('.')[0])
+			bugmenot_response.close()
+			return None
+
+		# Buckets for parsing
+		usernames = []
+		passwords = []
+		rates = []
+
+		for account in bmn_soup:
+			# First, parse the accounts for usernames and passwords
+			counter = 0 
+			for userpass in BeautifulSoup(str(account)).findAll('kbd'):
+				 if counter == 0: # we have a username
+					counter += 1
+					usernames.append(userpass.contents)
+				 elif counter == 1: # we have a password
+					counter += 1
+					passwords.append(userpass.contents)
+				 else: # we have a comment, ignore it and reset counter
+					counter = 0
+				 # Next, parse for the success rates
+				 for success in BeautifulSoup(str(account)).findAll(class_='success_rate'):
+					rates.append(success.contents)
+
+		# return the list of tuples for later parsing
+		bugmenot_response.close()
+		return zip(usernames, passwords, rates)
 	except urllib2.HTTPError, e:
 		print "Error code: ", e.code
 		if e.code == 404:
-			# they're blocking me!
-			print "HTTP 404, retrying in 10 seconds"
-			sleep(10)
-			return -1
+			print url, "- HTTP 404"
+			#bugmenot_response.close()
+			return None
 		else:
 			print e.fp.read()
 			raise e
 
-	# Extract the entries for accounts from the BeautifulSoup
-	bmn_soup = BeautifulSoup(bugmenot_response.read()).findAll(class_="account")
-
-	""" 
-	The soup will be empty if the page has no accounts or falls into the "bad"
-	category (paywalled, commmunity, etc.)
-	"""
-	if not bmn_soup:
-		print "No results for", url, "!"
-		# add to the ignore set
-		IGNORE_SET.add(url.rsplit('.')[0])
-		return None
-
-	# Buckets for parsing
-	usernames = []
-	passwords = []
-	rates = []
-
-	for account in bmn_soup:
-		# First, parse the accounts for usernames and passwords
-		counter = 0 
-		for userpass in BeautifulSoup(str(account)).findAll('kbd'):
-			if counter == 0: # we have a username
-				counter += 1
-				usernames.append(userpass.contents)
-			elif counter == 1: # we have a password
-				counter += 1
-				passwords.append(userpass.contents)
-			else: # we have a comment, ignore it and reset counter
-				counter = 0
-			
-		# Next, parse for the success rates
-		for success in BeautifulSoup(str(account)).findAll(class_='success_rate'):
-			rates.append(success.contents)
-
-	# return the list of tuples for later parsing
-	return zip(usernames, passwords, rates)
 
 """
 Write out the results to a file
@@ -135,12 +151,12 @@ def main(**kwargs):
 					# write out the working sites to a new file?
 					if GEN_FILE:
 						gen_file.write(str(result_number) + ',' + url + '\n')
-				if kwargs['writeout']:
-					write_result(url, site_result, kwargs['logfile'])
+					if kwargs['writeout']:
+						write_result(url, site_result, kwargs['logfile'])
 				if site_counter >= kwargs['max_sites']:
 					break
 				# don't want to DoS...
-				sleep(random.uniform(1.0, 3.55))
+				sleep(random.uniform(1.5, 3.5))
 				site_counter += 1
 			
 	except IOError, e:

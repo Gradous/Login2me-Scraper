@@ -105,6 +105,12 @@ def parse_args():
 		help='Skip to entry X before scraping')
 	return parser.parse_args()
 
+def update_gen_file(gen_file, result_number, url):
+	if gen_file:
+		gen_file.write(str(result_number) + ',' + url + '\n')
+		gen_file.flush()
+		fsync(gen_file)
+
 def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 	# seed for waiting
 	random.seed()
@@ -128,10 +134,7 @@ def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 					if site_result:
 						print url, "has", len(site_result), "results!"
 						# write out the working sites to a new file?
-						if gen_file:
-							gen_file.write(str(result_number) + ',' + url + '\n')
-							gen_file.flush()
-							fsync(gen_file)
+						update_gen_file(gen_file, result_number, url)
 						if kwargs['writeout']:
 							write_result(url, site_result, kwargs['logfile'])
 						result_number += 1

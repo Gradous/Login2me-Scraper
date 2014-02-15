@@ -111,54 +111,56 @@ def update_gen_file(gen_file, result_number, url):
 		gen_file.flush()
 		fsync(gen_file)
 
+def report_results(url, result, gen_file, result_num, writeout, log):
+	print url, "has", len(result), "results!"
+	# write out the working sites to a new file?
+	update_gen_file(gen_file, result_num, url)
+	if writeout:
+		write_result(url, result, log)
+
 def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 	# seed for waiting
 	random.seed()
 
 	if gen_file == scrape_file:
 		raise IOError("HEY! Don't use the same file for two things!!!")
-	if gen_file:
-		gen_file = open(gen_file[0], 'w+')
 
 	try:
 		with open(scrape_file, 'r') as to_scrape:
-			site_counter = kwargs['site_counter'] # loop break, default of 1
-			result_number = 1 # counter for filtered set
-			for site in to_scrape:
-				url = site.rsplit(',')[1].strip()
-				url_num = site.rsplit(',')[0].strip()
-				# --skip option takes effect here
-				if int(url_num) == int(site_counter):
-					# get the result, None = failure
-					site_result = scrape(url)
-					if site_result:
-						print url, "has", len(site_result), "results!"
-						# write out the working sites to a new file?
-						update_gen_file(gen_file, result_number, url)
-						if kwargs['writeout']:
-							write_result(url, site_result, kwargs['logfile'])
-						result_number += 1
-					if site_counter >= int(kwargs['site_counter']) +\
-					 int(kwargs['max_sites'] - 1):
-						break
-					# don't want to DoS...
-					sleep(random.uniform(min_wait, max_wait))
-					site_counter += 1
+			with open(gen_file[0], 'w+') as gen_file:
+				site_counter = kwargs['site_counter'] # loop break, default=1
+				result_number = 1 # counter for filtered set
+				for site in to_scrape:
+					url = site.rsplit(',')[1].strip()
+					url_num = site.rsplit(',')[0].strip()
+					# --skip option takes effect here
+					if int(url_num) == int(site_counter):
+						# get the result, None = failure
+						site_result = scrape(url)
+						if site_result:
+							# record the results
+							report_results(url, site_result, gen_file,
+								result_number, kwargs['writeout'],
+								kwargs['logfile'])
+							result_number += 1
+						if site_counter >= int(kwargs['site_counter']) +\
+						 int(kwargs['max_sites'] - 1):
+							break
+						# don't want to DoS...
+						sleep(random.uniform(min_wait, max_wait))
+						site_counter += 1
 			
 	except IOError, e:
-		raise IOError("Site list file does not exist!")
+		raise IOError("File " + e.filename + " does not exist!")
 	except KeyboardInterrupt, e2:
 		# ask to delete the incomplete logfile
 		if kwargs['writeout']:
-			if raw_input("Interrupted. Delete the results file? (Y/N) ").upper() == 'Y':
+			if raw_input("Interrupted. Delete the results" +\
+				" file? (Y/N) ").upper() == 'Y':
 				try: # just in case python didn't actually write yet...
 					remove(kwargs['logfile'])
 				except OSError, e:
 					pass
-	finally:
-		if gen_file:
-			gen_file.close() # this is annoying but I have to do it
-		
 
 if __name__ == "__main__":	
 	args = parse_args()

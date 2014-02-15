@@ -14,8 +14,8 @@ import urllib2
 Globals
 """
 USER_AGENT = 'Bug-Scraper1.0 (github.com/Gradous/Bug-Scraper)'
-"""
 
+"""
 Main scraping/spidering function
 """
 def scrape(url):
@@ -69,8 +69,7 @@ def scrape(url):
 			print url, "- HTTP 404"
 			return None
 		else:
-			print e.fp.read()
-			raise e
+			raise e(e.fp.read())
 
 
 """
@@ -106,10 +105,9 @@ def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 	random.seed()
 
 	if gen_file == scrape_file:
-		print "HEY! Don't use the same file for two things!!!"
-		raise IOError
+		raise IOError("HEY! Don't use the same file for two things!!!")
 	if gen_file:
-		gen_file = open(gen_file, 'w+')
+		gen_file = open(gen_file[0], 'w+')
 
 	try:
 		with open(scrape_file, 'r') as to_scrape:
@@ -117,10 +115,8 @@ def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 			result_number = 0 # this is for later parsing of a smaller set
 			for site in to_scrape:
 				url = site.rsplit(',')[1].strip()
+				# get the result, None = failure
 				site_result = scrape(url)
-				# account for failures due to 404
-				while site_result == -1:
-					site_result = scrape(url)
 				if site_result:
 					result_number += 1
 					print url, "has", len(site_result), "results!"
@@ -136,8 +132,7 @@ def main(scrape_file, gen_file, min_wait=1.0, max_wait=3.5, **kwargs):
 				site_counter += 1
 			
 	except IOError, e:
-		print "Site list file does not exist!"
-		raise IOError
+		raise IOError("Site list file does not exist!")
 	except KeyboardInterrupt, e2:
 		# ask to delete the incomplete logfile
 		if kwargs['writeout']:

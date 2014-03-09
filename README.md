@@ -1,4 +1,4 @@
-FakeAccount-Scraper
+Login2me-Scraper
 ===========
 
-Scrapes fakeaccount.net account data. Based on BugScraper.
+Scrapes login2.me account data. Based on BugScraper.

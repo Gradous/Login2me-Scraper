@@ -18,8 +18,9 @@ def scrape(url, min_wait, max_wait):
 	# close this later (since it's a separate program)
 	browser = webdriver.Remote("http://localhost:4444/wd/hub", \
 	webdriver.DesiredCapabilities.HTMLUNITWITHJS)
-	# need some waiting due to page load time
-	browser.implicitly_wait(5)
+	# need some waiting due to page load/render time, 
+	# should only matter on first search
+	browser.implicitly_wait(3)
 	try:
 		browser.get('http://login2.me#' + url)
 		#print browser.page_source
@@ -49,7 +50,7 @@ def scrape(url, min_wait, max_wait):
 				# click for more accounts
 				more_btn.click()
 				# page render is stupid
-				sleep(1)
+				sleep(0.8)
 		# no more usernames when the login field can't be found
 		except NoSuchElementException, e: 
 			print "No more logins for", url

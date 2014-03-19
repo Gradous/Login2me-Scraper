@@ -83,7 +83,7 @@ def parse_args():
 	parser.add_argument('-m', '--max-sites', nargs=1, help="Max sites to parse",
 		default=[1000000])
 	parser.add_argument('-o', '--output', nargs=1,
-		default=['result_' + strftime("%m-%d-%Y_%H:%M:%S", localtime()) + '.txt'],
+		default=['result_' + strftime("%m-%d-%Y_%H-%M-%S", localtime()) + '.txt'],
 		help='Result output file. Defaults to current date and time.')
 	parser.add_argument('-s', '--skip', nargs=1, default=[1], 
 		help='Skip to entry X before scraping')

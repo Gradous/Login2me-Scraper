@@ -75,7 +75,7 @@ def write_result(url, results, log):
 		fsync(logfile)
 
 def parse_args():
-	parser = argparse.ArgumentParser(description='Scrape FakeAccount for accounts')
+	parser = argparse.ArgumentParser(description='Scrape Login2Me for accounts')
 	parser.add_argument('-f', '--file', nargs=1, help='Site list for scraping',
 		default=['alexa_top_1m.csv'])
 	parser.add_argument('-n', '--no-results', action='store_false',

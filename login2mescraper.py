@@ -20,7 +20,7 @@ def scrape(url, min_wait, max_wait):
 	webdriver.DesiredCapabilities.HTMLUNITWITHJS)
 	# need some waiting due to page load/render time, 
 	# should only matter on first search
-	browser.implicitly_wait(3)
+	browser.implicitly_wait(5)
 	try:
 		browser.get('http://login2.me#' + url)
 		#print browser.page_source
@@ -50,7 +50,7 @@ def scrape(url, min_wait, max_wait):
 				# click for more accounts
 				more_btn.click()
 				# page render is stupid
-				sleep(0.8)
+				sleep(1)
 		# no more usernames when the login field can't be found
 		except NoSuchElementException, e: 
 			print "No more logins for", url
@@ -95,7 +95,7 @@ def report_results(url, result, result_num, writeout, log):
 	if writeout:
 		write_result(url, result, log)
 
-def main(scrape_file, min_wait=4.5, max_wait=5.5, **kwargs):
+def main(scrape_file, min_wait=5.0, max_wait=6.5, **kwargs):
 	# seed for waiting
 	random.seed()
 	try:

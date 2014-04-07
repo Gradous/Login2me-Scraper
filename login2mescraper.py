@@ -123,7 +123,8 @@ def main(scrape_file, min_wait=5.0, max_wait=6.5, **kwargs):
 					site_counter += 1
 			
 	except IOError, e:
-		raise IOError("File " + e.filename + " does not exist!")
+		raise IOError("File " + e.filename + " does not exist or " + \
+			"Selenium server is not started on port 4444!")
 	except KeyboardInterrupt, e2:
 		# ask to delete the incomplete logfile
 		if kwargs['writeout']:

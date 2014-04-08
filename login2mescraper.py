@@ -46,11 +46,10 @@ def scrape(url, min_wait, max_wait):
 				password = browser.find_element_by_id("password").text
 				usernames.append(login)
 				passwords.append(password)
-				sleep(random.uniform(min_wait, max_wait))
 				# click for more accounts
 				more_btn.click()
 				# page render is stupid
-				sleep(1)
+				sleep(random.uniform(min_wait, max_wait))
 		# no more usernames when the login field can't be found
 		except NoSuchElementException, e: 
 			print "No more logins for", url
@@ -95,7 +94,7 @@ def report_results(url, result, result_num, writeout, log):
 	if writeout:
 		write_result(url, result, log)
 
-def main(scrape_file, min_wait=5.0, max_wait=6.5, **kwargs):
+def main(scrape_file, min_wait=3.0, max_wait=5.0, **kwargs):
 	# seed for waiting
 	random.seed()
 	try:
@@ -123,6 +122,7 @@ def main(scrape_file, min_wait=5.0, max_wait=6.5, **kwargs):
 					site_counter += 1
 			
 	except IOError, e:
+		print e.args
 		raise IOError("File " + e.filename + " does not exist or " + \
 			"Selenium server is not started on port 4444!")
 	except KeyboardInterrupt, e2:
